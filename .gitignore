@@ -1,0 +1,4 @@
+# Various build artifacts
+build/
+extra/usb_updater/generated_version.h
+cryptoc/build/

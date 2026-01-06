@@ -1,0 +1,273 @@
+# -*- makefile -*-
+# Copyright 2014 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+
+CORE:=cortex-m
+CFLAGS_CPU+=-march=armv7-m -mcpu=cortex-m3
+
+# Flags to reduce unnecessary warnings with gcc 11.2
+CFLAGS_CHIP :=-Wno-stringop-overflow -Wno-array-parameter -Wno-stringop-overread
+
+ifeq ($(CONFIG_DCRYPTO),y)
+INCLUDE_ROOT := $(abspath ./include)
+CPPFLAGS += -I$(abspath .)
+CPPFLAGS += -I$(abspath ./builtin)
+CPPFLAGS += -I$(abspath ./chip/$(CHIP)/dcrypto)
+CPPFLAGS += -I$(INCLUDE_ROOT)
+CPPFLAGS += -I$(realpath ../../third_party/cryptoc/include)
+dirs-y += chip/$(HAVEN)/dcrypto
+endif
+
+
+# Required chip modules
+chip-y = clock.o gpio.o hwtimer.o pre_init.o system.o
+chip-$(CONFIG_BOARD_ID_SUPPORT) += board_id.o
+chip-$(CONFIG_BOARD_ID_SUPPORT) += factory_config.o
+chip-$(CONFIG_SN_BITS_SUPPORT) += sn_bits.o
+ifeq ($(CONFIG_POLLING_UART),y)
+chip-y += polling_uart.o
+else
+chip-y += uart.o
+chip-y += uartn.o
+chip-$(CONFIG_UART_BITBANG)+= uart_bitbang.o
+endif # undef CONFIG_POLLING_UART
+
+chip-$(CONFIG_DCRYPTO)+= crypto_api.o
+
+chip-$(CONFIG_DCRYPTO)+= dcrypto/aes.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/aes_cmac.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/app_cipher.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/app_key.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/bn.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/dcrypto_bn.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/dcrypto_p256.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/compare.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/dcrypto_runtime.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/gcm.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/hkdf.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/hmac.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/hmac_drbg.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/key_ladder.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/p256.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/p256_ec.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/p256_ecies.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/rsa.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/sha1.o
+chip-$(CONFIG_DCRYPTO)+= dcrypto/sha256.o
+ifeq ($(CONFIG_UPTO_SHA512),y)
+chip-$(CONFIG_DCRYPTO)+= dcrypto/sha384.o
+ifeq ($(CONFIG_DCRYPTO_SHA512),y)
+chip-$(CONFIG_DCRYPTO)+= dcrypto/dcrypto_sha512.o
+else
+chip-$(CONFIG_DCRYPTO)+= dcrypto/sha512.o
+endif
+endif
+chip-$(CONFIG_DCRYPTO)+= dcrypto/x509.o
+chip-$(CONFIG_DCRYPTO)+= trng.o
+
+chip-$(CONFIG_SPI_CONTROLLER)+=spi_controller.o
+
+chip-y+= jitter.o
+chip-y+= pmu.o
+chip-y+= runlevel.o
+chip-$(CONFIG_CCD_ITE_PROGRAMMING)+= ite_flash.o
+chip-$(CONFIG_CCD_ITE_PROGRAMMING)+= ite_sync.o
+chip-$(CONFIG_ENABLE_H1_ALERTS)+= alerts.o
+chip-$(CONFIG_USB_FW_UPDATE)+= usb_upgrade.o
+chip-$(CONFIG_NON_HC_FW_UPDATE)+= upgrade_fw.o post_reset.o upgrade.o
+chip-$(CONFIG_SPP)+= spp.o
+chip-$(CONFIG_TPM_SPP)+=spp_tpm.o
+chip-$(CONFIG_WATCHDOG)+=watchdog.o
+
+chip-$(CONFIG_USB)+=usb.o usb_endpoints.o
+chip-$(CONFIG_USB_CONSOLE)+=usb_console.o
+chip-$(CONFIG_USB_BLOB)+=blob.o
+chip-$(CONFIG_USB_SPI)+=usb_spi.o
+chip-$(CONFIG_USB_SPI_V2)+=usb_spi_v2.o
+chip-$(CONFIG_RDD)+=rdd.o
+chip-$(CONFIG_RBOX)+=rbox.o
+chip-$(CONFIG_STREAM_USB)+=usb-stream.o
+chip-$(CONFIG_STREAM_USART)+=usart.o
+chip-$(CONFIG_I2C_CONTROLLER)+= i2cc.o
+chip-$(CONFIG_I2C_PERIPH)+= i2cp.o
+
+chip-$(CONFIG_LOW_POWER_IDLE)+=idle.o
+
+chip-$(CONFIG_FLASH_PHYSICAL) += flash.o
+
+ifneq ($(CONFIG_CUSTOMIZED_RO),)
+CPPFLAGS_RO += -I$(realpath cryptoc/include)
+custom-ro_objs-y += chip/$(CHIP)/loader/key_ladder.o
+custom-ro_objs-y += chip/$(CHIP)/loader/debug_printf.o
+custom-ro_objs-y += chip/$(CHIP)/loader/hw_sha256.o
+custom-ro_objs-y += chip/$(CHIP)/loader/launch.o
+custom-ro_objs-y += chip/$(CHIP)/loader/main.o
+custom-ro_objs-y += chip/$(CHIP)/loader/regtable.o
+custom-ro_objs-y += chip/$(CHIP)/loader/rescue.o
+custom-ro_objs-y += chip/$(CHIP)/loader/rom_flash.o
+custom-ro_objs-y += chip/$(CHIP)/loader/ro_uart.o
+custom-ro_objs-y += chip/$(CHIP)/loader/setup.o
+custom-ro_objs-y += chip/$(CHIP)/loader/vectors.o
+custom-ro_objs-y += chip/$(CHIP)/loader/verify.o
+custom-ro_objs-y += common/util.o
+dirs-y += chip/$(CHIP)/loader
+endif
+
+ifneq ($(CONFIG_BUILD_ROM),)
+CPPFLAGS_ROM += -I$(abspath ./chip/$(CHIP)/dcrypto)
+CPPFLAGS_ROM += -I$(realpath cryptoc/include)
+custom-rom_objs-y  = chip/$(CHIP)/boot.o
+custom-rom_objs-y += chip/$(CHIP)/debug_printf.o
+custom-rom_objs-y += chip/$(CHIP)/flash.o
+custom-rom_objs-y += chip/$(CHIP)/main.o
+custom-rom_objs-y += chip/$(CHIP)/setup.o
+custom-rom_objs-y += chip/$(CHIP)/spiflash.o
+custom-rom_objs-y += chip/$(CHIP)/verify.o
+custom-rom_objs-y += common/printf.o
+custom-rom_objs-y += common/util.o
+dirs-y += chip/$(CHIP)/dcrypto
+dirs-y += chip/$(CHIP)/rom
+endif
+
+# Do not build any test on chip/haven
+test-list-y=
+
+%.hex: %.flat
+
+ifneq ($(CONFIG_RW_B),)
+$(out)/$(PROJECT).obj: $(out)/RW/ec.RW_B.flat
+endif
+
+ifneq ($(CR50_DEV),)
+CPPFLAGS += -DCR50_DEV=$(CR50_DEV)
+endif
+
+ifneq ($(BRANCH),)
+MANIFEST := chip/$(CHIP)/signing/manifest.$(BRANCH).json
+else
+MANIFEST := chip/$(CHIP)/signing/manifest.TOT.json
+endif
+
+CR50_RO_KEY ?= a1_dev.pem
+
+ifeq ($(CHIP_MK_INCLUDED_ONCE),)
+
+CHIP_MK_INCLUDED_ONCE := 1
+
+CODESIGNER_PATH := $(abspath util/signer)
+
+# Try to find preinstalled or pre-built codesigner
+SIGNER := $(firstword $(wildcard ../../build/bin/$(shell uname -m)/cr50-codesigner\
+		/usr/bin/cr50-codesigner \
+		/usr/local/bin/cr50-codesigner \
+	    $(CODESIGNER_PATH)/codesigner))
+
+SANITIZE_MANIFEST := $(abspath util/convert_signing_json.sh)
+
+# We'll have to tweak the manifest no matter what, but different ways
+# depending on the way the image is built.
+SIGNER_MANIFEST := $(shell mktemp /tmp/h1.signer.XXXXXX)
+COPY_MANIFEST := $(shell /bin/cp $(MANIFEST) $(SIGNER_MANIFEST))
+
+RW_SIGNER_EXTRAS += -j $(SIGNER_MANIFEST) -x chip/$(CHIP)/signing/fuses.xml
+
+ifneq ($(CR50_SWAP_RMA_KEYS),)
+
+ifneq ($(CONFIG_RMA_AUTH_USE_P256),)
+CURVE := p256
+else
+CURVE := x25519
+endif
+
+RMA_KEY_BASE := board/$(BOARD)/rma_key_blob.$(CURVE)
+RW_SIGNER_EXTRAS += --swap $(RMA_KEY_BASE).test,$(RMA_KEY_BASE).prod
+endif
+
+ifeq ($(H1_DEVIDS),)
+# Signing with non-secret test key.
+CR50_RW_KEY = loader-testkey-A.pem
+else
+# Try to build signer from the known location, if it is missing
+ifeq ($(SIGNER),)
+# If source path is present, build codesigner later as dependency
+ifneq ($(wildcard $(CODESIGNER_PATH)),)
+SIGNER := $(CODESIGNER_PATH)/codesigner
+# Set CFLAGS and CXX to avoid passing target configuration
+$(SIGNER):
+	CFLAGS="-O2" CXX="clang++" $(MAKE) -C $(CODESIGNER_PATH) codesigner
+else
+$(error cr50-codesigner is not available!)
+endif
+endif
+
+RW_SIGNER_EXTRAS += --override-keyid
+ifeq ($(USE_USB_FOB_KEY),)
+# The private key comes from Cloud KMS.
+export KMS_PKCS11_CONFIG = $(abspath chip/haven/config.yaml)
+PKCS11_MODULE_PATH = /usr/lib64/libkmsp11.so
+KMS_KEY_RESOURCE_NAME = projects/gsc-cloud-kms-signing/locations/us/keyRings/gsc-node-locked-signing-keys/cryptoKeys/cr50-hsm-backed-node-locked-key/cryptoKeyVersions/1
+RW_SIGNER_EXTRAS += --pkcs11_engine="$(PKCS11_MODULE_PATH):0:$(KMS_KEY_RESOURCE_NAME)"
+CR50_RW_KEY = cr50-hsm-backed-node-locked-key.pem.pub
+else
+# The private key comes from the sighing fob.
+CR50_RW_KEY = cr50_rom0-dev-blsign.pem.pub
+endif
+#
+# When building a node locked cr50 image for an H1 device with prod RO, the
+# manifest needs to be modifed to include the device ID of the chip the image
+# is built for.
+#
+# The device ID consists of two 32 bit numbers which can be retrieved by
+# running the 'sysinfo' command on the cr50 console. These two numbers
+# need to be spliced into the signer manifest after the '"fuses": {' line
+# for the signer to pick them up. Pass the numbers on the make command line
+# like this:
+#
+# H1_DEVIDS='<num 1> <num 2>' make ...
+#
+ifneq ($(CR50_DEV),)
+
+#
+# When building a debug image, we don't want rollback protection to be in the
+# way - a debug image, which is guaranteed to be node locked should run on any
+# H1, whatever its info mask state is. The awk script below clears out the
+# info {} section of the manifest.
+#
+MODIFY_MANIFEST := $(shell /usr/bin/awk -i inplace 'BEGIN {skip = 0}; \
+	/^},/ {skip = 0}; \
+	{if (!skip) {print };} \
+	/"info": {/ {skip = 1};' $(SIGNER_MANIFEST))
+endif
+RW_SIGNER_EXTRAS += --dev_id0=$(word 1, $(H1_DEVIDS))
+RW_SIGNER_EXTRAS += --dev_id1=$(word 2, $(H1_DEVIDS))
+endif  # H1_DEVIDS defined
+
+# Modify the manifest tag field to match the board name. This is necessary for
+# perosnalization to succeed.
+#
+# Personalization infrastructure uses hslt_XXX board names with the underscore
+# replaced with a space and the part after undersore (if any), capitalized.
+# Edit the board name and express it in hex:
+HEX_NAME := $(shell printf "$(BOARD)" | /usr/bin/awk -F_ ' \
+	 {if (NF == 2) \
+	     { printf($$1" "toupper($$2)) } \
+	   else \
+	     { printf($$0) } \
+	  }' | hexdump -ve '1/1 "%.2x"')
+# This many zeros in the tag field need to be replaced.
+HEX_LEN  := $(shell printf $(HEX_NAME) | wc -c)
+$(shell sed -i "s/tag\": \"0\{$(HEX_LEN)\}/tag\": \"$(HEX_NAME)/" \
+       ${SIGNER_MANIFEST})
+
+# This file is included twice by the Makefile, once to determine the CHIP info
+# # and then again after defining all the CONFIG_ and HAS_TASK variables. We use
+# # a guard so that recipe definitions and variable extensions only happen the
+# # second time.
+else
+# This is the second pass of this make file.
+$(out)/RW/ec.RW_B.flat: $(out)/RW/ec.RW.flat
+$(out)/RW/ec.RW.flat $(out)/RW/ec.RW_B.flat: SIGNER_EXTRAS = $(RW_SIGNER_EXTRAS)
+
+endif   # CHIP_MK_INCLUDED_ONCE is nonempty

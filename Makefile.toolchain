@@ -1,0 +1,198 @@
+# -*- makefile -*-
+# Copyright 2012 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Toolchain configuration build system
+#
+
+# Toolchain configuration
+
+min_make_version := 3.82
+make_version_ok := $(filter $(min_make_version), $(firstword $(sort $(MAKE_VERSION) $(min_make_version))))
+ifeq ($(make_version_ok),)
+$(error ERROR: GNU make version $(min_make_version) or higher required.)
+endif
+
+# Default to clang if TEST_ASAN is enabled
+ifneq ($(TEST_FUZZ)$(TEST_ASAN)$(TEST_MSAN)$(TEST_UBSAN),)
+ifeq ($(CC_FOR_BUILD),)
+CROSS_COMPILE_CC_NAME=clang
+else
+CROSS_COMPILE_CC_NAME=$(CC_FOR_BUILD)
+endif
+endif
+
+ifeq ($(USE_CXX_COMPILER), 1)
+COMPILER=$(CROSS_COMPILE)$(CROSS_COMPILE_CXX_NAME)
+else
+COMPILER=$(CCACHE) $(CROSS_COMPILE)$(CROSS_COMPILE_CC_NAME)
+endif
+
+# Try not to assume too much about optional tools and prefixes
+CCACHE:=$(shell which ccache 2>/dev/null)
+ifeq ($(origin HOST_CROSS_COMPILE),undefined)
+# If building with Portage use the environment variable it provides.
+# https://wiki.gentoo.org/wiki/Embedded_Handbook/General/Introduction#Environment_variables
+ifneq ($(CHOST),)
+HOST_CROSS_COMPILE := $(CHOST)-
+else
+HOST_CROSS_COMPILE := $(if $(shell which x86_64-pc-linux-gnu-$(CROSS_COMPILE_CC_NAME) 2>/dev/null),x86_64-pc-linux-gnu-,)
+endif
+endif
+
+# Assume we want to use same compiler for both C and C++
+ifeq ($(CROSS_COMPILE_CC_NAME),gcc)
+CROSS_COMPILE_CXX_NAME ?= g++
+else
+CROSS_COMPILE_CXX_NAME ?= $(CROSS_COMPILE_CC_NAME)++
+endif
+
+AR = $(CROSS_COMPILE)ar
+CC = $(CCACHE) $(CROSS_COMPILE)$(CROSS_COMPILE_CC_NAME)
+CPP = $(CC) -E
+CXX = $(CROSS_COMPILE)$(CROSS_COMPILE_CXX_NAME)
+LD = $(CROSS_COMPILE)ld
+NM = $(CROSS_COMPILE)nm
+OBJCOPY = $(CROSS_COMPILE)objcopy
+OBJDUMP = $(CROSS_COMPILE)objdump
+ADDR2LINE = $(CROSS_COMPILE)addr2line
+PKG_CONFIG ?= pkg-config
+SHELL ?= /bin/sh
+
+ifeq ($(shell which x86_64-pc-linux-gnu-$(CROSS_COMPILE_CC_NAME) 2>/dev/null),)
+BUILDCC ?= $(CCACHE) $(CROSS_COMPILE_CC_NAME)
+else
+BUILDCC ?= $(CCACHE) x86_64-pc-linux-gnu-$(CROSS_COMPILE_CC_NAME)
+endif
+BUILDCC_NAME ?= $(CROSS_COMPILE_CC_NAME)
+HOSTCC ?= $(CCACHE) $(HOST_CROSS_COMPILE)$(CROSS_COMPILE_CC_NAME)
+HOSTCXX ?= $(CCACHE) $(HOST_CROSS_COMPILE)$(CROSS_COMPILE_CXX_NAME)
+HOST_PKG_CONFIG ?= $(HOST_CROSS_COMPILE)pkg-config
+PROTOC ?= protoc
+GCOV = $(CROSS_COMPILE)gcov
+ifeq ($(CROSS_COMPILE_CC_NAME),clang)
+HOSTGCOV = $(CURDIR)/util/llvm-gcov.sh
+else
+HOSTGCOV = $(HOST_CROSS_COMPILE)gcov
+endif
+
+C_WARN = -Wstrict-prototypes -Wdeclaration-after-statement -Wno-pointer-sign
+C_WARN += -Werror-implicit-function-declaration
+COMMON_WARN += -Wall -Wundef \
+	-Wno-trigraphs -Wno-format-security -Wno-address-of-packed-member \
+	-fno-common -fno-strict-aliasing -fno-strict-overflow
+
+ifndef ALLOW_WARNINGS
+COMMON_WARN+=-Werror
+endif
+
+
+UBSAN_FLAGS=-fsanitize=array-bounds,vla-bound \
+  -fno-sanitize=vptr \
+  -fno-sanitize-recover=all
+
+CFLAGS_WARN = $(COMMON_WARN) $(C_WARN) \
+	$(COMMON_WARN-$(CROSS_COMPILE_CC_NAME)) $(C_WARN-$(CROSS_COMPILE_CC_NAME))
+CXXFLAGS_WARN = $(COMMON_WARN) $(COMMON_WARN-$(CROSS_COMPILE_CC_NAME))
+BUILDCC_WARN = $(COMMON_WARN) $(C_WARN) \
+	$(COMMON_WARN-$(BUILDCC_NAME)) $(C_WARN-$(BUILDCC_NAME))
+BUILDCXX_WARN = $(COMMON_WARN) $(COMMON_WARN-$(BUILDCC_NAME))
+CFLAGS_DEBUG= -g
+CFLAGS_DEBUG+=$(CFLAGS_DEBUG_CHIP)
+CFLAGS_INCLUDE=$(foreach i,$(includes),-I$(i) ) -I.
+CFLAGS_TEST=$(if $(TEST_BUILD),-DTEST_BUILD=$(EMPTY) \
+                               -DTEST_TASKFILE=$(PROJECT).tasklist,) \
+            $(if $(CTS_MODULE), $(CFLAGS_CTS)) \
+            $(if $(EMU_BUILD),-DEMU_BUILD=$(EMPTY)) \
+            -DTEST_$(PROJECT)=$(EMPTY) -DTEST_$(UC_PROJECT)=$(EMPTY) \
+            $(if $(TEST_ASAN),-fsanitize=address) \
+            $(if $(TEST_MSAN),-fsanitize=memory) \
+            $(if $(TEST_UBSAN),$(UBSAN_FLAGS)) \
+            $(if $(TEST_FUZZ),-fsanitize=fuzzer-no-link -fPIE \
+                       -fcoverage-mapping \
+                       -fprofile-instr-generate \
+                       -DTEST_FUZZ=$(EMPTY))
+CFLAGS_COVERAGE=$(if $(TEST_COVERAGE),-fprofile-arcs -ftest-coverage \
+              -DTEST_COVERAGE=$(EMPTY),)
+CFLAGS_DEFINE=-DOUTDIR=$(out)/$(BLD) -DCHIP=$(CHIP) -DBOARD_TASKFILE=$(_tsk_lst_file) \
+              -DBOARD=$(BOARD) -DCORE=$(CORE) -DPROJECT=$(PROJECT) \
+              -DCHIP_VARIANT=$(CHIP_VARIANT) -DCHIP_FAMILY=$(CHIP_FAMILY) \
+              -DBOARD_$(UC_BOARD)=$(EMPTY) \
+              -DCHIP_$(UC_CHIP)=$(EMPTY) \
+              -DCORE_$(UC_CORE)=$(EMPTY) \
+              -DCHIP_VARIANT_$(UC_CHIP_VARIANT)=$(EMPTY) \
+              -DCHIP_FAMILY_$(UC_CHIP_FAMILY)=$(EMPTY) \
+              -DFINAL_OUTDIR=$(out) \
+              $(CFLAGS_BASEBOARD)
+CPPFLAGS=$(CFLAGS_DEFINE) $(CFLAGS_INCLUDE) $(CFLAGS_TEST) \
+   $(EXTRA_CFLAGS) $(CFLAGS_COVERAGE) $(LATE_CFLAGS_DEFINE) \
+  -DSECTION_IS_$(BLD)=$(EMPTY) -DSECTION=$(BLD) $(CPPFLAGS_$(BLD))
+BUILD_CPPFLAGS=$(CFLAGS_DEFINE) -Icore/host $(CFLAGS_INCLUDE) $(CFLAGS_TEST) \
+   $(EXTRA_CFLAGS) $(CFLAGS_COVERAGE) $(LATE_CFLAGS_DEFINE) \
+   -DSECTION_IS_$(BLD)=$(EMPTY) -DSECTION=$(BLD) $(CPPFLAGS_$(BLD))
+HOST_CPPFLAGS=$(CFLAGS_DEFINE) $(CFLAGS_INCLUDE) $(CFLAGS_TEST) \
+   $(EXTRA_CFLAGS) $(CFLAGS_COVERAGE) $(LATE_CFLAGS_DEFINE) \
+   -DSECTION_IS_$(BLD)=$(EMPTY) -DSECTION=$(BLD) $(CPPFLAGS_$(BLD))
+ifneq ($(BOARD),host)
+CPPFLAGS+=-ffreestanding -fno-builtin -nostdinc -nostdlib -fno-PIC
+CPPFLAGS+=-Ibuiltin/
+else
+CPPFLAGS+=-Og
+endif
+CPPFLAGS+= -DCHROMIUM_EC=$(EMPTY)
+CFLAGS=$(CPPFLAGS) $(CFLAGS_CPU) $(CFLAGS_DEBUG) $(COMMON_WARN) $(COMMON_WARN-$(CROSS_COMPILE_CC_NAME)) $(CFLAGS_y)
+CFLAGS+= -ffunction-sections -fshort-wchar
+CFLAGS+= -fno-delete-null-pointer-checks
+CFLAGS+= -fno-PIC
+CFLAGS+=$(CFLAGS_CHIP) $(CFLAGS_BOARD)
+
+CXXFLAGS+=-DPROTOBUF_INLINE_NOT_IN_HEADERS=0
+
+FTDIVERSION:=$(shell $(PKG_CONFIG) --modversion libftdi1 2>/dev/null)
+ifneq ($(FTDIVERSION),)
+  LIBFTDI_NAME=ftdi1
+else
+  LIBFTDI_NAME=ftdi
+endif
+
+LIBFTDIUSB_CFLAGS:=$(shell $(PKG_CONFIG) --cflags lib${LIBFTDI_NAME} libusb-1.0)
+LIBFTDIUSB_LDLIBS:=$(shell $(PKG_CONFIG) --libs   lib${LIBFTDI_NAME} libusb-1.0)
+
+ifeq ($(TEST_FUZZ),y)
+LIBPROTOBUF_CFLAGS:=$(shell $(PKG_CONFIG) --cflags protobuf)
+LIBPROTOBUF_LDLIBS:=$(shell $(PKG_CONFIG) --libs   protobuf)
+
+LIBPROTOBUF_MUTATOR_CFLAGS:=${LIBPROTOBUF_CFLAGS} \
+  $(shell $(PKG_CONFIG) --cflags libprotobuf-mutator)
+LIBPROTOBUF_MUTATOR_LDLIBS:=$(shell $(PKG_CONFIG) --libs libprotobuf-mutator) \
+  ${LIBPROTOBUF_LDLIBS}
+endif
+
+BUILD_CFLAGS=$(LIBFTDIUSB_BUILD_CFLAGS) $(BUILD_CPPFLAGS) -O3 $(CFLAGS_DEBUG)
+BUILD_CFLAGS+=$(BUILDCC_WARN)
+BUILD_CFLAGS+=-DCHROMIUM_EC=$(EMPTY)
+HOST_CFLAGS=$(HOST_CPPFLAGS) -O3 $(CFLAGS_DEBUG) $(CFLAGS_WARN) \
+      -DHOST_TOOLS_BUILD=$(EMPTY)
+HOST_CFLAGS+=$(LIBFTDIUSB_CFLAGS)
+HOST_CFLAGS+=-DCHROMIUM_EC=$(EMPTY)
+ifneq (${SYSROOT},)
+  LDFLAGS_EXTRA+=--sysroot=${SYSROOT}
+endif
+LDFLAGS=-nostdlib -no-pie -g -Wl,-X -Wl,--gc-sections -Wl,--build-id=none \
+  $(LDFLAGS_EXTRA) $(CFLAGS_CPU) $(CFLAGS_CHIP) $(CFLAGS_BOARD)
+BUILD_LDFLAGS=$(LIBFTDIUSB_LDLIBS)
+HOST_LDFLAGS=$(LIBFTDIUSB_LDLIBS)
+HOST_TEST_LDFLAGS=-Wl,-T core/host/host_exe.lds -lrt -pthread -rdynamic -lm -g \
+      -fuse-ld=bfd -no-pie \
+      $(if $(TEST_COVERAGE), -fprofile-arcs) \
+      $(if $(TEST_ASAN), -fsanitize=address) \
+      $(if $(TEST_MSAN), -fsanitize=memory) \
+      $(if $(TEST_UBSAN), ${UBSAN_FLAGS}) \
+      $(if $(TEST_FUZZ), -fsanitize=fuzzer -fcoverage-mapping -fprofile-instr-generate)
+
+# utility function to provide overridable defaults
+# $1: name of variable to set
+# $2: first default to use
+# $3: second default to use
+set-option = $(eval $1=$$(strip $$(if $(2),$(2),$(3))))
