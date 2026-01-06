@@ -149,8 +149,8 @@ int init_gpio(void)
 
     if (!(config0 & BIT(0))) {
         GREG32(PINMUX, DIOA0_SEL) = 0x46;
-        GREG32(PINMUX, DIOM1_SEL) = 0x13a9;
-        GREG32(PINMUX, DIOM1_CTL) = 1;
+        GREG32(UART, NCO) = 0x13a9;
+        GREG32(UART, CTRL) = 1;
     };
 
     return 0;
