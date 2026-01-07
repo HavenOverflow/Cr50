@@ -14,7 +14,10 @@ SECTIONS
 
         . = ALIGN(4);
         KEEP(*(.text.__reset))
-        
+
+        . = ALIGN(4);
+        *(.text.startup)
+
         . = ALIGN(4);
         build/init.o (.text)
         . = ALIGN(4);
