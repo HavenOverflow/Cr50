@@ -18,7 +18,7 @@ int main(void)
 	init_cpu();
 
 	resp = G32PROT_VAL(FUSE, FW_DEFINED_BROM_ERR_RESPONSE);
-	G32PROT_FIELD(GLOBALSEC, ALERT_CONTROL, PROC_LOCKUP_SHUTDOWN_EN, (resp >> 0xa & 3));
+	G32PROT(GLOBALSEC, ALERT_CONTROL, (resp >> 0xa & 3) << 0x14);
 
 	ret = cpu_setup();
 
