@@ -7,11 +7,13 @@
 #define __EC_TEST_NVMEM_TEST_H
 
 #define EMBEDDED_MODE 1
+#ifndef BOARD_MN50
 #define NV_C
 #include "Global.h"
 #undef NV_C
 #include "NV_fp.h"
 #include "tpm_generated.h"
+#endif
 
 enum test_failure_mode {
 	TEST_NO_FAILURE,
