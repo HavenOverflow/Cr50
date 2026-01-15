@@ -195,7 +195,7 @@ void LOADERKEY_verify(uint32_t key, const uint32_t *signature,
 	}
 
 	/* Hash resulting buffer. */
-	hwSHA256((uint8_t *) buf, RSA_NUM_BYTES, (uint8_t *) hash);
+	hwSHA256((uint8_t *) buf, RSA_NUM_BYTES, hash);
 
 	/*
 	 * Write computed hash to unlock register to unlock execution, iff
