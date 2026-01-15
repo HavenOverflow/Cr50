@@ -73,7 +73,7 @@ void boot_sys(uint32_t adr, size_t max_size)
 
 	hwSHA256((uint8_t *) &hdr->tag,
 			hdr->image_size - offsetof(struct SignedHeader, tag),
-			(uint8_t *) hashes.img_hash);
+			hashes.img_hash);
 	debug_printf("Himg =%h\n", SHA256_DIGEST_LENGTH, hashes.img_hash);
 
 	/* Sense fuses into RAM array; hash array. */
@@ -95,8 +95,7 @@ void boot_sys(uint32_t adr, size_t max_size)
 		}
 	}
 
-	hwSHA256((uint8_t *) fuses, sizeof(fuses),
-			(uint8_t *) hashes.fuses_hash);
+	hwSHA256((uint8_t *) fuses, sizeof(fuses), hashes.fuses_hash);
 	debug_printf("Hfss =%h\n", SHA256_DIGEST_LENGTH, hashes.fuses_hash);
 
 	/* Sense info into RAM array; hash array. */
@@ -113,13 +112,11 @@ void boot_sys(uint32_t adr, size_t max_size)
 		}
 	}
 
-	hwSHA256((uint8_t *) info, sizeof(info),
-			(uint8_t *) hashes.info_hash);
+	hwSHA256((uint8_t *) info, sizeof(info), hashes.info_hash);
 	debug_printf("Hinf =%h\n", SHA256_DIGEST_LENGTH, hashes.info_hash);
 
 	/* Hash our set of hashes to get final hash. */
-	hwSHA256((uint8_t *) &hashes, sizeof(hashes),
-			(uint8_t *) hash);
+	hwSHA256((uint8_t *) &hashes, sizeof(hashes), hash);
 	
 	/* Verify the hash checksums. */
 	if (hdr->img_chk_ != hashes.img_hash[0] ||
