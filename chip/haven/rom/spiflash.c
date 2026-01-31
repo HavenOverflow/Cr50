@@ -160,7 +160,7 @@ void move_sps_ptrs(uint32_t rxr_offset, uint32_t txw_offset)
 // 							return BOOTSTRAP_BAD_MAGIC;
 						
 // 						/* Make sure image belongs at flash_offset. */
-// 						if (hdr->image_size < 0x80000)
+// 						if (hdr->image_size > 0x80000)
 // 							return BOOTSTRAP_OVERSIZED_IMAGE;
 // 						if (pkt->flash_offset >= 0x80000)
 // 							return BOOTSTRAP_BAD_ADDR;
