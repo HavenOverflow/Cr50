@@ -55,20 +55,25 @@ uint32_t spi_get_offset(void)
 }
 
 
-/* These 2 aren't completely accurate, needs to be improved ~ Hannah */
+/* I want someone to double-check these two and fix the Gregs. -Kayla */
 // void spi_txdata(uint32_t *txbuf, size_t len)
 // {
 // 	uint32_t offset;
+//	uint32_t index;
 
 // 	/* Make sure all values are 4-byte aligned. */
 // 	if (len & 3 || txbuf & 3 || !len)
 // 		return;
 
-// 	/* Find our Tx FIFO buffer offset. */
+// 	/* Find our Tx FIFO buffer offset. Do we need greg32_addr instead?*/
 // 	offset = GREG32(SPS, TXFIFO_WPTR) - txbuf;
+//	index = (offset >> 2) & 0xff;
 
 // 	while (len) {
-// 		GREG32_ADDR(SPS, TX_DATA)[something] = txbuf[something];
+// 		GREG32_ADDR(SPS, TX_DATA)[index] = *txbuf++;
+
+//		/*Wrap at fifo bounds*/
+//		index = (index + 1) & 0xff;
 // 		len -= 4;
 // 	}
 // }
@@ -76,14 +81,25 @@ uint32_t spi_get_offset(void)
 // void spi_read_data(uint32_t *out, size_t len)
 // {
 // 	uint32_t offset;
+//	uint32_t index
 
 // 	/* Make sure all values are 4-byte aligned. */
-// 	if (len & 3 || txbuf & 3 || !len)
+// 	if (len & 3 || out & 3 || !len) 
 // 		return;
 
-// 	for (int i = 0; i < (len / sizeof(uint32_t)); ++i) {
-// 		out[i] = GREG32_ADDR(SPS, RX_DATA)[i];
-// 	}
+//	//need replace magic with Greg
+//	offset =  *0x40510040 - out;
+//	//out is charstar because bn says so. maybe should be change
+//	index = (((char*)out + offset) >> 2) & 0xff;
+
+//	while(len){ 
+//		//Probably shouldnt be Greg32_addr
+//		*out++ = GREG32_ADDR(SPS, RX_DATA)[index << 2];
+
+//		/* Wrap at fifo bounds*/
+//		index = (index + 1) & 0xff;
+//		len -= 4;
+//	}
 // }
 
 int sps_tx_active(void)
