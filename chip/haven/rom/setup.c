@@ -165,7 +165,6 @@ int init_trng(void)
     uint32_t trng_ldo_ctrl;
     uint32_t trng_analog_ctrl;
 
-
     if ((G32PROT_VAL(FUSE, TRNG_LDO_CTRL_EN) & 7) != 5) {
         trng_ldo_ctrl = 5;
     } else {
@@ -177,7 +176,7 @@ int init_trng(void)
     if ((G32PROT_VAL(FUSE, TRNG_ANALOG_CTRL_EN) & 7) != 5)
         trng_analog_ctrl = 0;
     else
-        trng_analog_ctrl = G32PROT_VAL(TRNG, ANALOG_CTRL) & 15;
+        trng_analog_ctrl = G32PROT_VAL(FUSE, TRNG_ANALOG_CTRL) & 15;
 
     G32PROT(TRNG, ANALOG_CTRL, trng_analog_ctrl);
 
