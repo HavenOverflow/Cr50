@@ -129,15 +129,17 @@ int init_parity(void)
 int init_gpio(void)
 {
 	uint32_t config0;
+    uint32_t applysec;
 
 	G32PROT(PMU, PERICLKSET0, (GREG32(PMU, PERICLKSET0) | 0x50000000 | 0x118));
 	G32PROT(PMU, PERICLKSET1, (GREG32(PMU, PERICLKSET1) | 0xc30));
 
 	config0 = G32PROT_VAL(FUSE, FW_DEFINED_BROM_CONFIG0);
+    applysec = G32PROT_VAL(FUSE, FW_DEFINED_BROM_APPLYSEC);
 
 	if ((G32PROT_VAL(FUSE, RC_JTR_OSC48_CC_EN) & 7) != 5 &&
 		(G32PROT_VAL(FUSE, RC_JTR_OSC60_CC_EN) & 7) != 5 &&
-		G32PROT_VAL(FUSE, FW_DEFINED_BROM_APPLYSEC) & 0x400) {
+        (applysec & 0x400) == 0) {
 		GREG32(PINMUX, DIOB5_CTL) = 0xc;
 		GREG32(PINMUX, GPIO0_GPIO1_SEL) = 5;
 	}
@@ -226,19 +228,19 @@ void init_jittery_clock(void)
     uint32_t current_val = setting;
 
     // write to de banks
-    for (uint32_t i = GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK7); 
-            i >= GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK1); 
-            i -= 4) {
+    for (uint32_t reg = GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK7);
+            reg > GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK1);
+            reg -= 4) {
         current_val -= delta;
-        glitch_reg32(i, current_val >> 3);
+        glitch_reg32(reg, current_val >> 3);
     }
 
     // write to de banks
-    for (uint32_t i = GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK9); 
-            i <= GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK15); 
-            i += 4) {
+    for (uint32_t reg = GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK9);
+            reg <= GRAWREG(XO, CLK_JTR_JITTERY_TRIM_BANK15);
+            reg += 4) {
         setting += delta;
-        glitch_reg32(i, setting >> 3);
+        glitch_reg32(reg, setting >> 3);
     }
 
     G32PROT(XO, CLK_JTR_TRIM_CTRL, 0x8c9);
@@ -264,7 +266,8 @@ void init_xtl_osc(void)
     }
 };
 
-int init_clock(int cpu_setup_ret) {
+int init_clock(int cpu_setup_ret)
+{
     uint32_t ret = cpu_setup_ret;
     uint32_t brom_applysec = G32PROT_VAL(FUSE, FW_DEFINED_BROM_APPLYSEC);
     

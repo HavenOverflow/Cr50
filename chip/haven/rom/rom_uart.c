@@ -20,7 +20,7 @@ int uart_tx_done(void)
     if (GREG32(FUSE, FW_DEFINED_BROM_CONFIG0) & 1)
         return 1;
     
-    return (GREG32(UART, STATE) & 0x30) != 0x30;
+    return (GREG32(UART, STATE) & 0x30) == 0x30;
 }
 
 void uart_txchar(char tx)

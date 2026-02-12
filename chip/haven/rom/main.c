@@ -73,5 +73,5 @@ int main(void)
 	/* We failed to launch an image. Set the scratch indicator and panic. */
 	disarmRAMGuards();
 	GREG32(PMU, PWRDN_SCRATCH29) = 1;
-	_purgatory((resp & BIT(6)) | 2);
+	_purgatory(((resp >> 6) & 1) | 2);
 }
