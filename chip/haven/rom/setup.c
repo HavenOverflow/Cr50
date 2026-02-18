@@ -10,6 +10,7 @@
 #include "regtable.h"
 #include "sha256.h"
 #include "setup.h"
+#include "pmu.h"
 
 #define GRAWREG(mname, rname) (GBASE(mname) + GOFFSET(mname, rname))
 
@@ -251,19 +252,20 @@ void init_jittery_clock(void)
 
 void init_xtl_osc(void)
 {
-    if ((G32PROT_VAL(FUSE, RC_JTR_OSC48_CC_EN) & 7) != 5 && 
-        (G32PROT_VAL(FUSE, RC_JTR_OSC60_CC_EN) & 7) != 5 && 
-        !(G32PROT_VAL(FUSE, FW_DEFINED_BROM_APPLYSEC) & BIT(10)) &&
-        (GREG32(GPIO, DATAIN) & 2)
-    ) {
-        GREG32(PMU, PERICLKSET1) = 0x1000;
-        GREG32(PMU, OSC_CTRL) |= GFIELD_MASK(PMU, OSC_CTRL, XTL_READYB);
-        GREG32(PMU, SW_PDB_SECURE) |= GFIELD_MASK(PMU, SW_PDB_SECURE, XTL);
-        GREG32(PMU, OSC_CTRL) &= ~GFIELD_MASK(PMU, OSC_CTRL, XTL_READYB);
-        GREG32(PMU, XTL_OSC_BYPASS) = 1;
-        GREG32(XO, CLK_JTR_CTRL) = 0;
-        GREG32(XO, CLK_TIMER_CTRL) = 0;
-    }
+    /* Turn on DXO clock so we can write in the trim code in */
+    pmu_clock_en(PERIPH_XO);
+    
+    /* Disable the XTL Clock */
+    GWRITE_FIELD(PMU, OSC_CTRL, XTL_READYB, 0x1);
+
+    GWRITE_FIELD(PMU, SW_PDB_SECURE, XTL, 0x1);
+    
+    /* Enable the flops for XTL in the glitchless switch */
+    GWRITE_FIELD(PMU, OSC_CTRL, XTL_READYB, 0x0);
+
+    GREG32(PMU, XTL_OSC_BYPASS) = 1;
+    GREG32(XO, CLK_JTR_CTRL) = 0;
+    GREG32(XO, CLK_TIMER_CTRL) = 0;
 };
 
 int init_clock(int cpu_setup_ret)
@@ -284,7 +286,13 @@ int init_clock(int cpu_setup_ret)
     // appleflyer: not really sure what this is, but it's never triggered
     // on production devices as far as we know. it seems to be using an
     // external oscillator instead of the internal RC oscillators.
-    init_xtl_osc();
+    if ((G32PROT_VAL(FUSE, RC_JTR_OSC48_CC_EN) & 7) != 5 && 
+        (G32PROT_VAL(FUSE, RC_JTR_OSC60_CC_EN) & 7) != 5 && 
+        !(G32PROT_VAL(FUSE, FW_DEFINED_BROM_APPLYSEC) & BIT(10)) &&
+        (GREG32(GPIO, DATAIN) & 2)
+    ) {
+        init_xtl_osc();
+    };
 
     if (!(brom_applysec & BIT(6)) &&
         ((G32PROT_VAL(FUSE, RC_RTC_OSC256K_CC_EN) & 7) == 5)
