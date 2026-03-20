@@ -11,7 +11,7 @@
     glitch_reg32((uint32_t)GREG32_ADDR(REGION, OFFSET), VAL)
 
 #define G32PROT_OFFSET(REGION, OFFSET, I, VAL) \
-    glitch_reg32((uint32_t)GREG32_ADDR(REGION, OFFSET)[i], VAL)
+    glitch_reg32((uint32_t)GREG32_ADDR(REGION, OFFSET)[I], VAL)
 
 #define G32PROT_VAL(REGION, OFFSET) \
     glitch_reg32_val((uint32_t)GREG32_ADDR(REGION, OFFSET), GREG32(REGION, OFFSET))

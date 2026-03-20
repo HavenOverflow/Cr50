@@ -38,6 +38,7 @@ SRCS += $(BDIR)/setup.o
 SRCS += $(BDIR)/spiflash.o
 SRCS += $(BDIR)/vectors.o
 SRCS += $(BDIR)/verify.o
+SRCS += $(BDIR)/pmu.o
 
 # Use VERBOSE=1 for debug output
 ifeq ($(VERBOSE),)

@@ -2,20 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-include ../../../../toolchain.mk
+# This is heavily integrated with Smiko's build system, 
+# so compiling it by itself may not work.
 
-ARCH ?= x86_64
-
-CFLAGS  += -std=gnu99 \
-	-Wall \
-	-Werror \
-	-Wpointer-arith \
-	-Wcast-align \
-	-Wcast-qual \
-	-Wundef \
-	-Wsign-compare \
-	-Wredundant-decls \
-	-Wmissing-declarations
+include $(REPO_ROOT)/toolchain.mk
+include $(REPO_ROOT)/sources.mk
 
 ifeq ($(VERBOSE),)
 Q := @
@@ -23,12 +14,15 @@ else
 Q := 
 endif
 
-VPATH = ../../util
+# maybe rely on `../../` instead of `$(REPO_ROOT)`?
+CR50_ROOT := $(REPO_ROOT)/src/cr50
+
+VPATH := $(CR50_ROOT)/util
 BOARD := cr50
 
-LIBS_DIR := ../../../../lib
-BDIR := ../../../../build/gsctool/$(ARCH)
-ODIR := ../../../../build/bin/$(ARCH)
+LIBS_DIR := $(REPO_ROOT)/lib
+BDIR := $(REPO_ROOT)/build/gsctool/$(ARCH)
+ODIR := $(REPO_ROOT)/build/bin/$(ARCH)
 PROGRAMS := $(ODIR)/gsctool
 
 CFLAGS_CONFIG := $(shell $(PKG_CONFIG) --cflags libusb-1.0)
@@ -43,12 +37,10 @@ LIBS_g  := $(LIBS_DIR)/$(ARCH)/libcrypto.a
 LDFLAGS += -static
 endif
 
-CFLAGS  += -I../../include -I../../util -I../../fuzz -I../../test -I../../../../lib/$(ARCH)/openssl/include
+CFLAGS  += -I$(CR50_ROOT)/include -I$(CR50_ROOT)/util -I$(CR50_ROOT)/fuzz -I$(CR50_ROOT)/test -I$(REPO_ROOT)/lib/$(ARCH)/openssl/include
 CPPFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
 
-LIBS    += $(LIBS_CONFIG) $(LIBS_g)
-CFLAGS  += $(CFLAGS_CONFIG) $(CFLAGS_g)
-CPPFLAGS  += -I../../board/cr50 -I ../../chip/smiko
+CPPFLAGS  += -I$(CR50_ROOT)/board/cr50 -I $(CR50_ROOT)/chip/smiko
 
 all: $(PROGRAMS)
 
@@ -63,7 +55,7 @@ $(ODIR)/gsctool: $(GSCTOOL_OBJS) Makefile
 
 $(BDIR)/%.o: %.c
 	@echo "  CC      $<"
-	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -MMD -MF $(basename $@).d -o $@ $<
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -MMD -MF $(basename $@).d $(LIBS_CFLAGS) -o $@ $<
 
 $(BDIR)/gsctool.o:  generated_version.h
 
@@ -72,7 +64,7 @@ generated_version.h: $(GSCTOOL_SOURCES)
 	# as even when building with Cr50 enabled, other directories do not
 	# matter for gsctool.
 	@echo "  VERSION $@"
-	$(Q)(cd ../../; BOARD= util/getversion.sh) > $@
+	$(Q)(cd $(CR50_ROOT)/; BOARD= util/getversion.sh) > $@
 
 .PHONY: clean
 
