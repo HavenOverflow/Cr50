@@ -49,8 +49,8 @@ void tryLaunch(uint32_t adr, size_t max_size, uint32_t *ladder)
 	/* Validity check image header. */
 	if (hdr->magic != -1)
 		return;
-  if (hdr->image_size < CONFIG_FLASH_BANK_SIZE)
-    return;
+  	if (hdr->image_size < CONFIG_FLASH_BANK_SIZE)
+    	return;
 	if (hdr->image_size > max_size)
 		return;
 
